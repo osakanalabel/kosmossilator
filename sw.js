@@ -2,7 +2,7 @@
    IMPORTANT: bump VERSION whenever any asset changes, and keep ASSETS in sync. */
 "use strict";
 
-var VERSION = "kosmo-v1";
+var VERSION = "kosmo-v2";
 var ASSETS = [
   "./",
   "./index.html",
@@ -11,6 +11,7 @@ var ASSETS = [
   "./js/scales.js",
   "./js/programs.js",
   "./js/state.js",
+  "./js/presets.js",
   "./js/engine.js",
   "./js/looper.js",
   "./js/pad.js",

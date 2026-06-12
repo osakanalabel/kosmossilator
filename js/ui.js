@@ -92,6 +92,18 @@ var UI = {
   buildSettings: function () {
     var self = this;
 
+    var prEl = this.$("set-preset");
+    PRESETS.forEach(function (pr, i) {
+      var b = document.createElement("button");
+      b.textContent = pr.name;
+      b.addEventListener("click", function () {
+        loadPreset(i);
+        self.toast(pr.name);
+        self.closeSheets();
+      });
+      prEl.appendChild(b);
+    });
+
     var keyEl = this.$("set-key");
     KEYS.forEach(function (k, i) {
       var b = document.createElement("button");
