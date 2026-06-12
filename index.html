@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>KOSMOSSILATOR — Touch Synth</title>
+<meta name="description" content="XYパッドで演奏するタッチシンセ &amp; ループレコーダー。Kaossilatorにインスパイアされた Web Audio 楽器。">
+<meta name="theme-color" content="#05060a">
+<link rel="manifest" href="./manifest.webmanifest">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kosmo">
+<link rel="apple-touch-icon" href="./apple-touch-icon.png">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <header id="topbar">
+    <div id="logo">KOSMO<em>SSILATOR</em></div>
+    <div id="topchips">
+      <button id="chip-scale" class="chip" type="button">A min.P</button>
+      <button id="chip-bpm" class="chip" type="button">120</button>
+      <button id="chip-settings" class="chip chip-icon" type="button" aria-label="settings">&#9881;</button>
+    </div>
+  </header>
+
+  <div id="pad-wrap">
+    <canvas id="pad-grid"></canvas>
+    <canvas id="pad-fx"></canvas>
+    <div id="note-display"></div>
+    <div id="axis-x" class="axis-label">PITCH &#9656;</div>
+    <div id="axis-y" class="axis-label">TONE &#9656;</div>
+  </div>
+
+  <div id="prog-row">
+    <button id="btn-gate" class="pill" type="button">GATE<span id="gate-mode">OFF</span></button>
+    <button id="prog-prev" class="pill" type="button">&#9664;</button>
+    <button id="prog-name" type="button">
+      <span id="prog-cat">LEAD</span>
+      <span id="prog-title">Neon Lead</span>
+    </button>
+    <button id="prog-next" class="pill" type="button">&#9654;</button>
+  </div>
+
+  <div id="bottom">
+    <div id="parts"></div>
+    <div id="transport">
+      <div id="leds"><i></i><i></i><i></i><i></i></div>
+      <button id="btn-rec" type="button" aria-label="record">&#9679;</button>
+      <button id="btn-play" type="button" aria-label="play stop">&#9654;</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- slide-up sheets -->
+<div id="backdrop"></div>
+
+<div id="sheet-settings" class="sheet">
+  <div class="sheet-head"><span>SETTINGS</span><button class="sheet-close" type="button">&#10005;</button></div>
+  <div class="sheet-body">
+    <div class="set-label">KEY</div>
+    <div id="set-key" class="chip-grid cols6"></div>
+    <div class="set-label">SCALE</div>
+    <div id="set-scale" class="chip-grid cols2"></div>
+    <div class="set-label">NOTE RANGE (OCTAVES)</div>
+    <div id="set-oct" class="seg"></div>
+    <div class="set-label">LOOP LENGTH (BARS)</div>
+    <div id="set-loop" class="seg"></div>
+    <div class="set-label">METRONOME CLICK</div>
+    <div id="set-click" class="seg"></div>
+    <div class="set-label">VOLUME</div>
+    <input id="set-vol" type="range" min="0" max="1" step="0.01" value="0.9">
+    <button id="set-clear" class="danger" type="button">ALL CLEAR (全パート消去)</button>
+    <div class="about">KOSMOSSILATOR — a web instrument inspired by KORG Kaossilator.<br>Unofficial fan-made project. Web Audio API / PWA.</div>
+  </div>
+</div>
+
+<div id="sheet-programs" class="sheet">
+  <div class="sheet-head"><span>SOUND PROGRAMS</span><button class="sheet-close" type="button">&#10005;</button></div>
+  <div class="sheet-body"><div id="prog-list"></div></div>
+</div>
+
+<div id="sheet-bpm" class="sheet">
+  <div class="sheet-head"><span>TEMPO</span><button class="sheet-close" type="button">&#10005;</button></div>
+  <div class="sheet-body">
+    <div id="bpm-big">120</div>
+    <input id="bpm-slider" type="range" min="40" max="240" step="1" value="120">
+    <div id="bpm-btns">
+      <button id="bpm-minus" class="pill" type="button">&#8722;1</button>
+      <button id="bpm-plus" class="pill" type="button">+1</button>
+      <button id="bpm-tap" class="pill" type="button">TAP</button>
+    </div>
+  </div>
+</div>
+
+<!-- boot overlay (audio unlock) -->
+<div id="boot">
+  <div id="boot-logo">KOSMO<em>SSILATOR</em></div>
+  <div id="boot-sub">XY TOUCH SYNTH &amp; LOOPER</div>
+  <div id="boot-hint">TAP TO POWER ON</div>
+</div>
+
+<div id="toast"></div>
+
+<script src="./js/scales.js"></script>
+<script src="./js/programs.js"></script>
+<script src="./js/state.js"></script>
+<script src="./js/engine.js"></script>
+<script src="./js/looper.js"></script>
+<script src="./js/pad.js"></script>
+<script src="./js/ui.js"></script>
+<script src="./js/main.js"></script>
+</body>
+</html>
