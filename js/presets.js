@@ -126,7 +126,9 @@ function loadPreset(i) {
     pKill(k);
     Looper.parts[k].events = [];
     Looper.parts[k].muted = false;
+    Looper.parts[k].vol = 1;
   }
+  Looper.applyVols();
   pr.parts.forEach(function (ps, idx) {
     if (idx > 4) return;
     var cx = ps.d ? function (v) { return (v + 0.5) / N; } : function (v) { return v; };

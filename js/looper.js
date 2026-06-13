@@ -16,9 +16,11 @@ function partProg(i) { return progById(Looper.parts[i].prog); }
 function pDown(i, t, x, y, owner) {
   var prog = partProg(i);
   var pl = Players[i];
-  if (prog.type === "melodic" || prog.type === "chord") {
+  if (prog.type === "melodic" || prog.type === "chord" || prog.type === "water") {
     if (pl.voice) pl.voice.release(t);
-    pl.voice = Synth.createVoice(prog, i, t, x, y);
+    pl.voice = prog.type === "water"
+      ? Synth.createWaterVoice(prog, i, t, x, y)
+      : Synth.createVoice(prog, i, t, x, y);
     pl.owner = owner;
   } else if (prog.type === "drumhit") {
     var lane = laneFromX(x);
@@ -33,7 +35,7 @@ function pDown(i, t, x, y, owner) {
 function pMove(i, t, x, y) {
   var prog = partProg(i);
   var pl = Players[i];
-  if (prog.type === "melodic" || prog.type === "chord") {
+  if (prog.type === "melodic" || prog.type === "chord" || prog.type === "water") {
     if (pl.voice) pl.voice.setXY(t, x, y);
   } else if (prog.type === "drumhit") {
     var lane = laneFromX(x);
@@ -68,11 +70,11 @@ function laneFromX(x) {
 /* ---------------- Looper ---------------- */
 var Looper = {
   parts: [
-    { prog: "beatbox",  muted: false, events: [] },
-    { prog: "acid",     muted: false, events: [] },
-    { prog: "neonlead", muted: false, events: [] },
-    { prog: "stab",     muted: false, events: [] },
-    { prog: "octarp",   muted: false, events: [] }
+    { prog: "beatbox",  muted: false, vol: 1, events: [] },
+    { prog: "acid",     muted: false, vol: 1, events: [] },
+    { prog: "neonlead", muted: false, vol: 1, events: [] },
+    { prog: "stab",     muted: false, vol: 1, events: [] },
+    { prog: "octarp",   muted: false, vol: 1, events: [] }
   ],
   selected: 0,
   playing: true,
@@ -114,7 +116,8 @@ var Looper = {
       return DRUM_PATTERNS[z].name;
     }
     if (prog.type === "drumhit") return DRUM_LANES[laneFromX(Live.x)].label;
-    if (prog.type === "zap") return "ZAP!";
+    if (prog.type === "water") return "FLOW";
+    if (prog.type === "zap" && prog.fx !== "drip") return "ZAP!";
     var pl = Players[this.selected];
     if (pl.voice && pl.voice.label) return pl.voice.label;
     var deg = NoteMath.degreeFromX(Live.x, State.scale(), Settings.octaves);
@@ -217,6 +220,20 @@ var Looper = {
 
   clearAll: function () {
     for (var i = 0; i < 5; i++) this.clearPart(i);
+  },
+
+  setPartVol: function (i, v) {
+    this.parts[i].vol = v;
+    if (Engine.ready) Engine.parts[i].vol.gain.setTargetAtTime(v, Engine.now(), 0.03);
+    State.save();
+  },
+
+  applyVols: function () {
+    if (!Engine.ready) return;
+    for (var i = 0; i < 5; i++) {
+      var v = this.parts[i].vol;
+      Engine.parts[i].vol.gain.value = typeof v === "number" ? v : 1;
+    }
   },
 
   setProgram: function (progId) {

@@ -185,6 +185,41 @@ var Synth = {
     return "sine";
   },
 
+  /* custom PeriodicWaves: NES pulse duty cycles + 4bit stepped triangle */
+  _PULSE_DUTY: { pulse125: 0.125, pulse25: 0.25, pulse50: 0.5 },
+  _waves: {},
+  _wave: function (name) {
+    if (this._waves[name]) return this._waves[name];
+    var real, imag, n, k;
+    if (name === "fctri") {
+      // DFT of the NES 32-step / 16-level triangle
+      var N = 32, samp = [];
+      for (k = 0; k < N; k++) {
+        var ph = k / N, tri = ph < 0.5 ? ph * 2 : 2 - ph * 2;
+        samp.push((Math.floor(tri * 15) / 15) * 2 - 1);
+      }
+      real = new Float32Array(17); imag = new Float32Array(17);
+      for (n = 1; n <= 16; n++) {
+        var a = 0, b = 0;
+        for (k = 0; k < N; k++) {
+          a += samp[k] * Math.cos(2 * Math.PI * n * k / N);
+          b += samp[k] * Math.sin(2 * Math.PI * n * k / N);
+        }
+        real[n] = 2 * a / N; imag[n] = 2 * b / N;
+      }
+    } else {
+      var d = this._PULSE_DUTY[name];
+      real = new Float32Array(33); imag = new Float32Array(33);
+      for (n = 1; n <= 32; n++) imag[n] = (2 / (n * Math.PI)) * Math.sin(Math.PI * n * d);
+    }
+    this._waves[name] = Engine.ctx.createPeriodicWave(real, imag);
+    return this._waves[name];
+  },
+  _setupOsc: function (o, name) {
+    if (name === "fctri" || this._PULSE_DUTY[name]) o.setPeriodicWave(this._wave(name));
+    else o.type = this._oscType(name);
+  },
+
   _cutoff: function (prog, y) {
     var c = prog.cutoff || { base: 1000, oct: 2 };
     return Math.min(16000, c.base * Math.pow(2, y * c.oct));
@@ -227,7 +262,7 @@ var Synth = {
       var oscs = [];
       for (var oi = 0; oi < detunes.length; oi++) {
         var o = ctx.createOscillator();
-        o.type = this._oscType(prog.osc);
+        this._setupOsc(o, prog.osc);
         o.detune.value = detunes[oi];
         o.connect(tg);
         o.start(t);
@@ -390,8 +425,117 @@ var Synth = {
     return NoteMath.noteName(m);
   },
 
+  /* sustained "water stream" voice: modulated bandpass noise */
+  createWaterVoice: function (prog, partIdx, t, x, y) {
+    var ctx = Engine.ctx, part = Engine.parts[partIdx];
+    var g = prog.gain || 0.5;
+    var amp = ctx.createGain(); amp.gain.value = 0;
+    amp.connect(part.gate);
+    if (prog.send) {
+      var send = ctx.createGain(); send.gain.value = prog.send;
+      amp.connect(send); send.connect(Engine.delayIn);
+    }
+    var noise = ctx.createBufferSource();
+    noise.buffer = Engine.noiseBuf; noise.loop = true;
+    // thin high "trickle" — the ちょろちょろ hiss
+    var trickle = ctx.createBiquadFilter(); trickle.type = "bandpass";
+    trickle.Q.value = 3.5; trickle.frequency.value = 3600;
+    var tg = ctx.createGain(); tg.gain.value = g * 0.28;
+    noise.connect(trickle); trickle.connect(tg); tg.connect(amp);
+    // hollow "cup body" resonance — rings higher as the cup fills (X)
+    var cup = ctx.createBiquadFilter(); cup.type = "bandpass";
+    cup.Q.value = 13; cup.frequency.value = 600;
+    var cg = ctx.createGain(); cg.gain.value = g * 0.9;
+    noise.connect(cup); cup.connect(cg); cg.connect(amp);
+    // gloop: two incommensurate LFOs wobble the cup pitch -> irregular bubbles
+    var l1 = ctx.createOscillator(); l1.type = "sine"; l1.frequency.value = 3.1;
+    var lg1 = ctx.createGain(); lg1.gain.value = 500;
+    l1.connect(lg1); lg1.connect(cup.detune);
+    var l2 = ctx.createOscillator(); l2.type = "triangle"; l2.frequency.value = 7.3;
+    var lg2 = ctx.createGain(); lg2.gain.value = 260;
+    l2.connect(lg2); lg2.connect(cup.detune);
+    // amplitude flutter -> the trickle "pulses" like real pouring
+    var l3 = ctx.createOscillator(); l3.type = "sine"; l3.frequency.value = 6;
+    var lg3 = ctx.createGain(); lg3.gain.value = g * 0.15;
+    l3.connect(lg3); lg3.connect(amp.gain);
+    var stoppables = [noise, l1, l2, l3];
+    for (var si = 0; si < stoppables.length; si++) stoppables[si].start(t);
+    amp.gain.setValueAtTime(0, t);
+    amp.gain.setTargetAtTime(g, t, 0.06);
+
+    var voice = {
+      prog: prog, released: false, label: "FLOW",
+      setXY: function (time, x2, y2) {
+        if (this.released) return;
+        // X = cup fill level (resonant pitch rises as it fills)
+        cup.frequency.setTargetAtTime(360 * Math.pow(2, x2 * 2.6), time, 0.07);
+        trickle.frequency.setTargetAtTime(2600 + x2 * 2600, time, 0.07);
+        // Y = flow rate: faster + deeper bubbles, a touch louder
+        lg1.gain.setTargetAtTime(250 + y2 * 700, time, 0.08);
+        lg2.gain.setTargetAtTime(150 + y2 * 360, time, 0.08);
+        l1.frequency.setTargetAtTime(2 + y2 * 5, time, 0.08);
+        l2.frequency.setTargetAtTime(5 + y2 * 7, time, 0.08);
+        l3.frequency.setTargetAtTime(4 + y2 * 8, time, 0.08);
+        lg3.gain.setTargetAtTime(g * (0.1 + y2 * 0.25), time, 0.08);
+        tg.gain.setTargetAtTime(g * (0.18 + y2 * 0.22), time, 0.08);
+      },
+      release: function (time) {
+        if (this.released) return;
+        this.released = true;
+        var p = amp.gain;
+        try { p.cancelAndHoldAtTime(time); } catch (e) { p.cancelScheduledValues(time); }
+        p.setTargetAtTime(0, time, 0.1);
+        this._stopAll(time + 0.7);
+      },
+      kill: function () {
+        var time = Engine.now();
+        this.released = true;
+        amp.gain.cancelScheduledValues(time);
+        amp.gain.setTargetAtTime(0, time, 0.012);
+        this._stopAll(time + 0.15);
+      },
+      _stopAll: function (tt) {
+        for (var i = 0; i < stoppables.length; i++) {
+          try { stoppables[i].stop(tt); } catch (e) {}
+        }
+        stoppables[0].onended = function () {
+          try { amp.disconnect(); } catch (e) {}
+        };
+      }
+    };
+    voice.setXY(t, x, y);
+    return voice;
+  },
+
+  /* water drip one-shot: scale-quantized "plink" (rising pitch chirp) */
+  _drip: function (prog, partIdx, t, x, y) {
+    var ctx = Engine.ctx;
+    var scale = State.scale();
+    var deg = NoteMath.degreeFromX(x, scale, Settings.octaves);
+    var f0 = NoteMath.midiToFreq(NoteMath.degreeToMidi(deg, Settings.keyIdx, scale, prog.baseOct));
+    var out = this._hitBus(partIdx, prog.send || 0.3);
+    var o = ctx.createOscillator(); o.type = "sine";
+    o.frequency.setValueAtTime(f0 * 0.85, t);
+    o.frequency.exponentialRampToValueAtTime(f0 * 1.8, t + 0.05 + y * 0.08);
+    var a = ctx.createGain(); a.gain.value = 0;
+    o.connect(a); a.connect(out);
+    a.gain.setValueAtTime(0, t);
+    a.gain.linearRampToValueAtTime(prog.gain || 0.5, t + 0.004);
+    a.gain.exponentialRampToValueAtTime(0.001, t + 0.15 + y * 0.3);
+    o.start(t); o.stop(t + 0.6);
+    // surface-tension tick
+    var n = ctx.createBufferSource(); n.buffer = Engine.noiseBuf;
+    var nf = ctx.createBiquadFilter(); nf.type = "highpass"; nf.frequency.value = 4000;
+    var na = ctx.createGain();
+    na.gain.setValueAtTime(0.12, t);
+    na.gain.exponentialRampToValueAtTime(0.001, t + 0.015);
+    n.connect(nf); nf.connect(na); na.connect(out);
+    n.start(t); n.stop(t + 0.05);
+  },
+
   /* laser zap one-shot (SE) */
   zapHit: function (prog, partIdx, t, x, y) {
+    if (prog.fx === "drip") return this._drip(prog, partIdx, t, x, y);
     var ctx = Engine.ctx, part = Engine.parts[partIdx];
     var fm = NoteMath.midiFromXFree(x, Settings.keyIdx, prog.baseOct, Settings.octaves);
     var f0 = NoteMath.midiToFreq(fm);

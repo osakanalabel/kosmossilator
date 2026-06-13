@@ -31,7 +31,7 @@ var State = {
         settings: Settings,
         selected: Looper.selected,
         parts: Looper.parts.map(function (p) {
-          return { prog: p.prog, muted: p.muted, events: p.events };
+          return { prog: p.prog, muted: p.muted, vol: p.vol, events: p.events };
         })
       };
       localStorage.setItem(State.KEY, JSON.stringify(data));
@@ -54,6 +54,7 @@ var State = {
           if (!sp) continue;
           if (sp.prog && progById(sp.prog).id === sp.prog) Looper.parts[i].prog = sp.prog;
           Looper.parts[i].muted = !!sp.muted;
+          Looper.parts[i].vol = typeof sp.vol === "number" ? sp.vol : 1;
           Looper.parts[i].events = Array.isArray(sp.events) ? sp.events : [];
         }
       }

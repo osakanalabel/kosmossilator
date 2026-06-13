@@ -18,6 +18,7 @@
     if (booted) return;
     booted = true;
     Engine.unlock();
+    Looper.applyVols();
     Clock.bpm = Settings.bpm;
     Clock.start();
     Engine.updateDelayTime();

@@ -137,6 +137,19 @@ var UI = {
       Settings.click = v === "ON"; State.save(); self.refreshSettings();
     });
 
+    var pvEl = this.$("set-pvol");
+    for (var pv = 0; pv < 5; pv++) {
+      (function (idx) {
+        var s = document.createElement("input");
+        s.type = "range"; s.min = 0; s.max = 1; s.step = 0.01; s.value = 1;
+        s.style.accentColor = self.PART_COLORS[idx];
+        s.addEventListener("input", function () {
+          Looper.setPartVol(idx, parseFloat(s.value));
+        });
+        pvEl.appendChild(s);
+      })(pv);
+    }
+
     var vol = this.$("set-vol");
     vol.value = Settings.volume;
     vol.addEventListener("input", function () {
@@ -190,6 +203,11 @@ var UI = {
     var scBtns = this.$("set-scale").children;
     for (var s = 0; s < scBtns.length; s++) {
       scBtns[s].classList.toggle("sel", scBtns[s].dataset.id === Settings.scaleId);
+    }
+    var pvs = this.$("set-pvol").children;
+    for (var pi = 0; pi < pvs.length; pi++) {
+      var v = Looper.parts[pi].vol;
+      pvs[pi].value = typeof v === "number" ? v : 1;
     }
     this.refreshSeg("set-oct", String(Settings.octaves));
     this.refreshSeg("set-loop", String(Settings.loopBars));
